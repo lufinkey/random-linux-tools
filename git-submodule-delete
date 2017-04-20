@@ -1,0 +1,73 @@
+#!/bin/bash
+
+submodule=""
+force=false
+
+arg_counter=1
+while [ $arg_counter -le $# ]
+do
+	arg=${!arg_counter}
+	if [[ "$arg" =~ ^-[a-zA-Z0-9_-]+$ ]]
+	then
+		if [ "$arg" == "-f" ]
+		then
+			force=true
+		elif [ "$arg" == "-m" ]
+		then
+			if [ -n "$submodule" ]
+			then
+				>&2 echo "Cannot specify submodule more than once"
+				exit 1
+			fi
+			arg_counter=$(($arg_counter+1))
+			submodule=${!arg_counter}
+		else
+			>&2 echo "Invalid argument \"$arg\""
+			exit 1
+		fi
+	else
+		if [ -n "$submodule" ]
+		then
+			>&2 echo "Invalid argument \"$arg\""
+			exit 1
+		fi
+		submodule="$arg"
+	fi
+	arg_counter=$(($arg_counter+1))
+done
+
+if [ -z "$submodule" ]
+then
+	>&2 echo "You must specify a submodule"
+	exit 1
+fi
+
+git_path=$(git rev-parse --show-toplevel)
+if [ -z "$git_path" ]
+then
+	>&2 echo "Not a valid git repository"
+	exit 1
+fi
+cd "$git_path"
+
+git submodule status "$submodule"
+submodule_exists=$?
+if [ $submodule_exists -ne 0 ]
+then
+	exit 1
+fi
+
+set -e
+
+if $force
+then
+	git submodule deinit -f "$submodule"
+	git rm -f "$submodule"
+else
+	git submodule deinit "$submodule"
+	git rm "$submodule"
+fi
+if [ -d ".git/modules/$submodule" ]
+then
+	rm -rf ".git/modules/$submodule"
+fi

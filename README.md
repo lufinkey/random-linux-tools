@@ -1,8 +1,8 @@
-# git-commit-at
+## git-commit-at
 
 Creates a git commit with a specified date
 
-## Usage
+### Usage
 
 ```
 git-commit-at <date> [<args>]
@@ -12,4 +12,14 @@ git-commit-at <date> [<args>]
 
 ```
 git-commit-at "$(date)" -m "this commit will have the current system time"
+```
+
+## git-submodule-delete
+
+Deletes a submodule from a git repo, along with all of its files
+
+### Usage
+
+```
+git-submodule-delete <path_to_submodule>
 ```
