@@ -21,5 +21,5 @@ Deletes a submodule from a git repo, along with all of its files
 ### Usage
 
 ```
-git-submodule-delete <path_to_submodule>
+git-submodule-delete [-f] [-m <submodule>|<submodule]
 ```
