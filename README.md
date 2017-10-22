@@ -51,6 +51,12 @@ no-internet <command>
 
 
 
+## whatismyip
+
+Prints your external ip address
+
+
+
 ## wifi-password
 
 Looks up your wifi password from NetworkManager
