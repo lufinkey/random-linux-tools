@@ -1,4 +1,6 @@
-### Installation
+This is a collection of random tools and scripts for different things in Linux
+
+#### Installation
 
 ```bash
 git clone https://github.com/lufinkey/random-tools
@@ -7,11 +9,11 @@ cd random-tools
 ```
 
 
-# git-commit-at
+## git-commit-at
 
 Creates a git commit with a specified date
 
-### Usage
+#### Usage
 
 ```bash
 git-commit-at <date> [<args>]
@@ -25,11 +27,11 @@ git-commit-at "$(date)" -m "this commit will have the current system time"
 
 
 
-# git-submodule-delete
+## git-submodule-delete
 
 Deletes a submodule from a git repo, along with all of its files
 
-### Usage
+#### Usage
 
 ```bash
 git-submodule-delete [-f] [-m <submodule>|<submodule>]
@@ -37,11 +39,11 @@ git-submodule-delete [-f] [-m <submodule>|<submodule>]
 
 
 
-# no-internet
+## no-internet
 
 Runs a command without an internet connection
 
-### Usage
+#### Usage
 
 ```bash
 no-internet <command>
@@ -49,11 +51,11 @@ no-internet <command>
 
 
 
-# wifi-password
+## wifi-password
 
 Looks up your wifi password from NetworkManager
 
-### Usage
+#### Usage
 
 ```bash
 wifi-password <SSID>
