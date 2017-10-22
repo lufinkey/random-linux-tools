@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# Create group
+if [ -z "$(getent group no-internet | cut -d: -f3)" ]
+then
+	>&2 echo "System group \"no-internet\" does not exist. Creating..."
+	sudo groupadd --system no-internet
+fi
+
+# Add current user to group
+if ! id -Gn luis | grep '\bno-internet\b' &> /dev/null
+then
+	>&2 read -p "user $USER is not added to the no internet group. Add? [y|n]: " prompt
+	if [ "$prompt" != "y" ]
+	then
+		exit
+	fi
+	sudo adduser "$USER" no-internet
+fi
+
+# Create network script
+network_script_path="/etc/network/if-pre-up.d/iptables_no-internet_rule"
+if [ ! -f "$network_script_path" ]
+then
+	network_script=$(cat <<EOF
+#!/bin/bash
+iptables -A OUTPUT -m owner --gid-owner no-internet -j DROP
+EOF
+)
+	>&2 echo "Network script does not exist. Creating..."
+	echo "$network_script" | sudo tee "$network_script_path" &> /dev/null
+	sudo chmod +x "$network_script_path"
+	sudo "$network_script_path"
+fi
+
+# Build argument string
+args=""
+arg_counter=1
+while [ $arg_counter -le $# ]
+do
+	arg=${!arg_counter}
+	esc_arg=$(printf "%q" "$arg")
+	if [ -z "$args" ]
+	then
+		args="$esc_arg"
+	else
+		args="$args $esc_arg"
+	fi
+	arg_counter=$((arg_counter+1))
+done
+
+sg no-internet -c "$args"
