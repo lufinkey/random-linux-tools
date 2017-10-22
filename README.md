@@ -1,3 +1,12 @@
+### Installation
+
+```bash
+git clone https://github.com/lufinkey/random-tools
+cd random-tools
+./install.sh
+```
+
+
 # git-commit-at
 
 Creates a git commit with a specified date
