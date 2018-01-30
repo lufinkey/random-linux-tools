@@ -1,10 +1,23 @@
 #!/bin/bash
 
+sudoargs=
+if [ -n "$DISPLAY" ]
+then
+	askpass_path=$(which ssh-askpass)
+	if [ -z "$askpass_path" ]
+	then
+		>&2 echo "ssh-askpass is not installed; you must install this yourself"
+		exit 1
+	fi
+	export SUDO_ASKPASS="$aspass_path"
+	sudoargs='-A -p "You must enter your password to set up the no-internet tool"'
+fi
+
 # Create group
 if [ -z "$(getent group no-internet | cut -d: -f3)" ]
 then
 	>&2 echo "System group \"no-internet\" does not exist. Creating..."
-	sudo groupadd --system no-internet
+	sudo $sudoargs groupadd --system no-internet
 fi
 
 # Add current user to group
@@ -13,9 +26,9 @@ then
 	>&2 read -p "user $USER is not added to the no internet group. Add? [y|n]: " prompt
 	if [ "$prompt" != "y" ]
 	then
-		exit
+		exit 1
 	fi
-	sudo adduser "$USER" no-internet
+	sudo $sudoargs adduser "$USER" no-internet
 fi
 
 # Create network script
@@ -29,8 +42,8 @@ EOF
 )
 	>&2 echo "Network script does not exist. Creating..."
 	echo "$network_script" | sudo tee "$network_script_path" &> /dev/null
-	sudo chmod +x "$network_script_path"
-	sudo "$network_script_path"
+	sudo $sudoargs chmod +x "$network_script_path"
+	sudo $sudoargs "$network_script_path"
 fi
 
 # Build argument string
@@ -50,3 +63,4 @@ do
 done
 
 sg no-internet -c "$args"
+exit $?
