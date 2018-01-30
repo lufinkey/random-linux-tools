@@ -1,3 +1,9 @@
 #!/bin/sh
-dig +short myip.opendns.com @resolver1.opendns.com
-
+output=$(dig +short myip.opendns.com @resolver1.opendns.com)
+result=$?
+if [ -n "$output" ]
+then
+	output=$(echo "$output" | head -n 1)
+	echo "$output"
+fi
+exit $result
