@@ -1,38 +1,109 @@
 #!/bin/bash
 
+using_gui=false
+setup_failure_message="Try running \"no-internet ping -c1 google.com\" in a terminal to diagnose the problem"
+
+# Function to display GUI message
+function display_message
+{
+	if [ -n "$(which zenity)" ] && $using_gui
+	then
+		zenity --info --text="$1"
+	elif [ -n "$(which xterm)" ] && $using_gui
+	then
+		esc_msg=$(printf "%q" "$1")
+		xterm -e bash -c 'echo $esc_msg; echo; echo -n "press enter to continue "; stty sane -echo; answer=$( while ! head -c 1; do true; done);'
+	else
+		>&2 echo "$1"
+	fi
+}
+
+# Function to ask for Yes / No input
+function display_decision
+{
+	if [ -n "$(which zenity)" ] && $using_gui
+	then
+		zenity --question --text="$1"
+		return $?
+	elif [ -n "$(which xterm)" ] && $using_gui
+	then
+		esc_msg=$(printf "%q" "$1 [y/n]: ")
+		random_str=$(head -c 16 /dev/random | xxd -pu)
+		xterm_command='read -p '$esc_msg' result; if [ "$result" != "y" ] && [ "$result" != "Y" ]; then echo 1 > /tmp/qresult-'$random_str'; else echo 0 > /tmp/qresult-'$random_str'; fi;'
+		xterm -e bash -c "$xterm_command"
+		result=$(cat "/tmp/qresult-$random_str")
+		rm -rf "/tmp/qresult-$random_str"
+		return $result
+	else
+		read -p "$1 [y/n]: " result
+		if [ "$result" != "y" ] && [ "$result" != "Y" ]
+		then
+			exit 1
+		else
+			exit 0
+		fi
+	fi
+}
+
+# Determine whether to use GUIs
 sudoargs=
-if [ -n "$DISPLAY" ]
+if [ -n "$DISPLAY" ] && [ -z "$(tty)" ]
 then
+	# If there is a display connected, and we aren't in a terminal, use a GUI
+	using_gui=true
 	askpass_path=$(which ssh-askpass)
 	if [ -z "$askpass_path" ]
 	then
-		>&2 echo "ssh-askpass is not installed; you must install this yourself"
+		display_message "ssh-askpass is not installed; you must install this yourself"
 		exit 1
+	else
+		export SUDO_ASKPASS="$aspass_path"
+		sudoargs='-A -p "root access is required to set up this utility"'
 	fi
-	export SUDO_ASKPASS="$aspass_path"
-	sudoargs='-A -p "You must enter your password to set up the no-internet tool"'
 fi
+
+
+# Ensure non-root user
+if [[ $EUID -eq 0 ]]
+then
+	display_message "no-internet utility cannot be run as root"
+	exit 1
+fi
+
 
 # Create group
 if [ -z "$(getent group no-internet | cut -d: -f3)" ]
 then
-	>&2 echo "System group \"no-internet\" does not exist. Creating..."
+	>&2 echo "System group \"no-internet\" does not exist."
 	sudo $sudoargs groupadd --system no-internet
+	sudo_result=$?
+	if [ $sudo_result -ne 0 ]
+	then
+		display_message "Failed to create system group. $setup_failure_message"
+		exit 1
+	fi
 fi
 
 # Add current user to group
-if ! id -Gn luis | grep '\bno-internet\b' &> /dev/null
+if ! id -Gn | grep '\bno-internet\b' &> /dev/null
 then
-	>&2 read -p "user $USER is not added to the no internet group. Add? [y|n]: " prompt
-	if [ "$prompt" != "y" ]
+	display_decision "$USER is not added to the no-internet system group. Add?"
+	result=$?
+	if [ $result -ne 0 ]
 	then
 		exit 1
 	fi
 	sudo $sudoargs adduser "$USER" no-internet
+	sudo_result=$?
+	if [ $sudo_result -ne 0 ]
+	then
+		display_message "Failed to add $USER to the no-internet system group. $setup_failure_message"
+		exit 1
+	fi
 fi
 
 # Create network script
-network_script_path="/etc/network/if-pre-up.d/iptables_no-internet_rule"
+network_script_path="/etc/network/if-pre-up.d/nointernetsystemgroup"
 if [ ! -f "$network_script_path" ]
 then
 	network_script=$(cat <<EOF
@@ -42,8 +113,55 @@ EOF
 )
 	>&2 echo "Network script does not exist. Creating..."
 	echo "$network_script" | sudo tee "$network_script_path" &> /dev/null
+	sudo_result=$?
+	if [ $sudo_result -ne 0 ]
+	then
+		display_message "Failed to create network script. $setup_failure_message"
+		exit 1
+	fi
+
 	sudo $sudoargs chmod +x "$network_script_path"
+	sudo_result=$?
+	if [ $sudo_result -ne 0 ]
+	then
+		display_message "Failed to mod network script permissions. $setup_failure_message"
+		exit 1
+	fi
+
 	sudo $sudoargs "$network_script_path"
+	sudo_result=$?
+	if [ $sudo_result -ne 0 ]
+	then
+		display_message "Failed to run network script. $setup_failure_message"
+		exit 1
+	fi
+fi
+
+# Ensure no internet connectivity
+sg no-internet -c "ping -c1 google.com" &> /dev/null
+internet_result=$?
+if [ $internet_result -eq 0 ]
+then
+	>&2 echo "This script is connected to the internet for some reason..."
+	>&2 echo "Re-running network script"
+
+	# Re-run network script
+	sudo $sudoargs "$network_script_path"
+	sudo_result=$?
+	if [ $sudo_result -ne 0 ]
+	then
+		display_message "Failed to run network script. $setup_failure_message"
+		exit 1
+	fi
+
+	# Check internet connectivity again
+	sg no-internet -c "ping -c1 google.com" &> /dev/null
+	internet_result=$?
+	if [ $internet_result -eq 0 ]
+	then
+		display_message "no-internet failed because it was connected to the internet for some reason. $setup_failure_message"
+		exit 1
+	fi
 fi
 
 # Build argument string
@@ -62,5 +180,7 @@ do
 	arg_counter=$((arg_counter+1))
 done
 
+# run command
 sg no-internet -c "$args"
+
 exit $?
