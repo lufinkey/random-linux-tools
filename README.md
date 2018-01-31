@@ -1,4 +1,4 @@
-This is a collection of random tools and scripts for different things in Linux
+A collection of random tools and scripts for different things in Linux
 
 #### Installation
 
