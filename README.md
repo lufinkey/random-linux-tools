@@ -3,8 +3,8 @@ A collection of random tools and scripts for different things in Linux
 #### Installation
 
 ```bash
-git clone https://github.com/lufinkey/random-tools
-cd random-tools
+git clone https://github.com/lufinkey/random-linux-tools
+cd random-linux-tools
 ./install.sh
 ```
 
